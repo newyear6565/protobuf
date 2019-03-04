@@ -1195,16 +1195,6 @@ func (g *Generator) generate(file *FileDescriptor) {
 	for name := range globalPackageNames {
 		g.usedPackageNames[name] = true
 	}
-
-	g.P("// This is a compile-time assertion to ensure that this generated file")
-	g.P("// is compatible with the proto package it is being compiled against.")
-	g.P("// A compilation error at this line likely means your copy of the")
-	g.P("// proto package needs to be updated.")
-	if gogoproto.ImportsGoGoProto(file.FileDescriptorProto) {
-		g.P("const _ = ", g.Pkg["proto"], ".GoGoProtoPackageIsVersion", generatedCodeVersion, " // please upgrade the proto package")
-	} else {
-		g.P("const _ = ", g.Pkg["proto"], ".ProtoPackageIsVersion", generatedCodeVersion, " // please upgrade the proto package")
-	}
 	g.P()
 	// Reset on each file
 	g.writtenImports = make(map[string]bool)
@@ -1224,8 +1214,6 @@ func (g *Generator) generate(file *FileDescriptor) {
 	for _, ext := range g.file.ext {
 		g.generateExtension(ext)
 	}
-	g.generateInitFunction()
-	g.generateFileDescriptor(file)
 
 	// Run the plugins before the imports so we know which imports are necessary.
 	g.runPlugins(file)
@@ -1404,14 +1392,6 @@ func (g *Generator) generateImports() {
 	g.P("import (")
 	g.PrintImport(GoPackageName(g.Pkg["fmt"]), "fmt")
 	g.PrintImport(GoPackageName(g.Pkg["math"]), "math")
-	if gogoproto.ImportsGoGoProto(g.file.FileDescriptorProto) {
-		g.PrintImport(GoPackageName(g.Pkg["proto"]), GoImportPath(g.ImportPrefix)+GoImportPath("github.com/gogo/protobuf/proto"))
-		if gogoproto.RegistersGolangProto(g.file.FileDescriptorProto) {
-			g.PrintImport(GoPackageName(g.Pkg["golang_proto"]), GoImportPath(g.ImportPrefix)+GoImportPath("github.com/golang/protobuf/proto"))
-		}
-	} else {
-		g.PrintImport(GoPackageName(g.Pkg["proto"]), GoImportPath(g.ImportPrefix)+GoImportPath("github.com/golang/protobuf/proto"))
-	}
 	for importPath, packageName := range imports {
 		g.P(packageName, " ", GoImportPath(g.ImportPrefix)+importPath)
 	}
@@ -1429,10 +1409,6 @@ func (g *Generator) generateImports() {
 	g.P(")")
 
 	g.P("// Reference imports to suppress errors if they are not otherwise used.")
-	g.P("var _ = ", g.Pkg["proto"], ".Marshal")
-	if gogoproto.ImportsGoGoProto(g.file.FileDescriptorProto) && gogoproto.RegistersGolangProto(g.file.FileDescriptorProto) {
-		g.P("var _ = ", g.Pkg["golang_proto"], ".Marshal")
-	}
 	g.P("var _ = ", g.Pkg["fmt"], ".Errorf")
 	g.P("var _ = ", g.Pkg["math"], ".Inf")
 	for _, cimport := range g.customImports {
@@ -3077,20 +3053,17 @@ func (g *Generator) generateCommonMethods(mc *msgCtx) {
 	// Reset, String and ProtoMessage methods.
 	g.P("func (m *", mc.goName, ") Reset() { *m = ", mc.goName, "{} }")
 	if gogoproto.EnabledGoStringer(g.file.FileDescriptorProto, mc.message.DescriptorProto) {
-		g.P("func (m *", mc.goName, ") String() string { return ", g.Pkg["proto"], ".CompactTextString(m) }")
+		g.P("func (m *", mc.goName, ") String() string {")
+		g.P("if b, err := m.Marshal(); err == nil {")
+		g.P("return string(b)")
+		g.P("}")
+		g.P("return string(\"\")")
+		g.P("}")
 	}
 	g.P("func (*", mc.goName, ") ProtoMessage() {}")
 	var indexes []string
 	for m := mc.message; m != nil; m = m.parent {
 		indexes = append([]string{strconv.Itoa(m.index)}, indexes...)
-	}
-	g.P("func (*", mc.goName, ") Descriptor() ([]byte, []int) {")
-	g.P("return ", g.file.VarName(), ", []int{", strings.Join(indexes, ", "), "}")
-	g.P("}")
-	// TODO: Revisit the decision to use a XXX_WellKnownType method
-	// if we change proto.MessageName to work with multiple equivalents.
-	if mc.message.file.GetPackage() == "google.protobuf" && wellKnownTypes[mc.message.GetName()] {
-		g.P("func (*", mc.goName, `) XXX_WellKnownType() string { return "`, mc.message.GetName(), `" }`)
 	}
 
 	// Extension support methods
@@ -3123,90 +3096,6 @@ func (g *Generator) generateCommonMethods(mc *msgCtx) {
 			g.P("}")
 		}
 	}
-
-	// TODO: It does not scale to keep adding another method for every
-	// operation on protos that we want to switch over to using the
-	// table-driven approach. Instead, we should only add a single method
-	// that allows getting access to the *InternalMessageInfo struct and then
-	// calling Unmarshal, Marshal, Merge, Size, and Discard directly on that.
-
-	// Wrapper for table-driven marshaling and unmarshaling.
-	g.P("func (m *", mc.goName, ") XXX_Unmarshal(b []byte) error {")
-	g.In()
-	if gogoproto.IsUnmarshaler(g.file.FileDescriptorProto, mc.message.DescriptorProto) {
-		g.P("return m.Unmarshal(b)")
-	} else {
-		g.P("return xxx_messageInfo_", mc.goName, ".Unmarshal(m, b)")
-	}
-	g.Out()
-	g.P("}")
-
-	g.P("func (m *", mc.goName, ") XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {")
-	g.In()
-	if gogoproto.IsMarshaler(g.file.FileDescriptorProto, mc.message.DescriptorProto) ||
-		gogoproto.IsUnsafeMarshaler(g.file.FileDescriptorProto, mc.message.DescriptorProto) {
-		if gogoproto.IsStableMarshaler(g.file.FileDescriptorProto, mc.message.DescriptorProto) {
-			g.P("b = b[:cap(b)]")
-			g.P("n, err := m.MarshalTo(b)")
-			g.P("if err != nil {")
-			g.In()
-			g.P("return nil, err")
-			g.Out()
-			g.P("}")
-			g.P("return b[:n], nil")
-		} else {
-			g.P("if deterministic {")
-			g.In()
-			g.P("return xxx_messageInfo_", mc.goName, ".Marshal(b, m, deterministic)")
-			g.P("} else {")
-			g.In()
-			g.P("b = b[:cap(b)]")
-			g.P("n, err := m.MarshalTo(b)")
-			g.P("if err != nil {")
-			g.In()
-			g.P("return nil, err")
-			g.Out()
-			g.P("}")
-			g.Out()
-			g.P("return b[:n], nil")
-			g.Out()
-			g.P("}")
-		}
-	} else {
-		g.P("return xxx_messageInfo_", mc.goName, ".Marshal(b, m, deterministic)")
-	}
-	g.Out()
-	g.P("}")
-
-	g.P("func (m *", mc.goName, ") XXX_Merge(src ", g.Pkg["proto"], ".Message) {")
-	g.In()
-	g.P("xxx_messageInfo_", mc.goName, ".Merge(m, src)")
-	g.Out()
-	g.P("}")
-
-	g.P("func (m *", mc.goName, ") XXX_Size() int {") // avoid name clash with "Size" field in some message
-	g.In()
-	if (gogoproto.IsMarshaler(g.file.FileDescriptorProto, mc.message.DescriptorProto) ||
-		gogoproto.IsUnsafeMarshaler(g.file.FileDescriptorProto, mc.message.DescriptorProto)) &&
-		gogoproto.IsSizer(g.file.FileDescriptorProto, mc.message.DescriptorProto) {
-		g.P("return m.Size()")
-	} else if (gogoproto.IsMarshaler(g.file.FileDescriptorProto, mc.message.DescriptorProto) ||
-		gogoproto.IsUnsafeMarshaler(g.file.FileDescriptorProto, mc.message.DescriptorProto)) &&
-		gogoproto.IsProtoSizer(g.file.FileDescriptorProto, mc.message.DescriptorProto) {
-		g.P("return m.ProtoSize()")
-	} else {
-		g.P("return xxx_messageInfo_", mc.goName, ".Size(m)")
-	}
-	g.Out()
-	g.P("}")
-
-	g.P("func (m *", mc.goName, ") XXX_DiscardUnknown() {")
-	g.In()
-	g.P("xxx_messageInfo_", mc.goName, ".DiscardUnknown(m)")
-	g.Out()
-	g.P("}")
-
-	g.P("var xxx_messageInfo_", mc.goName, " ", g.Pkg["proto"], ".InternalMessageInfo")
 }
 
 // Generate the type and default constant definitions for this Descriptor.
