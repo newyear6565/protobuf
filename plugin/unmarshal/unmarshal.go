@@ -211,16 +211,6 @@ func (p *unmarshal) Init(g *generator.Generator) {
 func (p *unmarshal) decodeVarint(varName string, typName string) {
 	p.P(`for shift := uint(0); ; shift += 7 {`)
 	p.In()
-	p.P(`if shift >= 64 {`)
-	p.In()
-	p.P(`return ErrIntOverflow` + p.localName)
-	p.Out()
-	p.P(`}`)
-	p.P(`if iNdEx >= l {`)
-	p.In()
-	p.P(`return `, p.ioPkg.Use(), `.ErrUnexpectedEOF`)
-	p.Out()
-	p.P(`}`)
 	p.P(`b := dAtA[iNdEx]`)
 	p.P(`iNdEx++`)
 	p.P(varName, ` |= `, typName, `(b&0x7F) << shift`)
@@ -362,22 +352,7 @@ func (p *unmarshal) mapField(varName string, customType bool, field *descriptor.
 		p.P(`var stringLen`, varName, ` uint64`)
 		p.decodeVarint("stringLen"+varName, "uint64")
 		p.P(`intStringLen`, varName, ` := int(stringLen`, varName, `)`)
-		p.P(`if intStringLen`, varName, ` < 0 {`)
-		p.In()
-		p.P(`return ErrInvalidLength` + p.localName)
-		p.Out()
-		p.P(`}`)
 		p.P(`postStringIndex`, varName, ` := iNdEx + intStringLen`, varName)
-		p.P(`if postStringIndex`, varName, ` < 0 {`)
-		p.In()
-		p.P(`return ErrInvalidLength` + p.localName)
-		p.Out()
-		p.P(`}`)
-		p.P(`if postStringIndex`, varName, ` > l {`)
-		p.In()
-		p.P(`return `, p.ioPkg.Use(), `.ErrUnexpectedEOF`)
-		p.Out()
-		p.P(`}`)
 		cast, _ := p.GoType(nil, field)
 		cast = strings.Replace(cast, "*", "", 1)
 		p.P(varName, ` = `, cast, `(dAtA[iNdEx:postStringIndex`, varName, `])`)
@@ -385,22 +360,7 @@ func (p *unmarshal) mapField(varName string, customType bool, field *descriptor.
 	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
 		p.P(`var mapmsglen int`)
 		p.decodeVarint("mapmsglen", "int")
-		p.P(`if mapmsglen < 0 {`)
-		p.In()
-		p.P(`return ErrInvalidLength` + p.localName)
-		p.Out()
-		p.P(`}`)
 		p.P(`postmsgIndex := iNdEx + mapmsglen`)
-		p.P(`if postmsgIndex < 0 {`)
-		p.In()
-		p.P(`return ErrInvalidLength` + p.localName)
-		p.Out()
-		p.P(`}`)
-		p.P(`if postmsgIndex > l {`)
-		p.In()
-		p.P(`return `, p.ioPkg.Use(), `.ErrUnexpectedEOF`)
-		p.Out()
-		p.P(`}`)
 		buf := `dAtA[iNdEx:postmsgIndex]`
 		if gogoproto.IsStdTime(field) {
 			p.P(`if err := `, p.typesPkg.Use(), `.StdTimeUnmarshal(`, varName, `, `, buf, `); err != nil {`)
@@ -439,22 +399,7 @@ func (p *unmarshal) mapField(varName string, customType bool, field *descriptor.
 		p.P(`var mapbyteLen uint64`)
 		p.decodeVarint("mapbyteLen", "uint64")
 		p.P(`intMapbyteLen := int(mapbyteLen)`)
-		p.P(`if intMapbyteLen < 0 {`)
-		p.In()
-		p.P(`return ErrInvalidLength` + p.localName)
-		p.Out()
-		p.P(`}`)
 		p.P(`postbytesIndex := iNdEx + intMapbyteLen`)
-		p.P(`if postbytesIndex < 0 {`)
-		p.In()
-		p.P(`return ErrInvalidLength` + p.localName)
-		p.Out()
-		p.P(`}`)
-		p.P(`if postbytesIndex > l {`)
-		p.In()
-		p.P(`return `, p.ioPkg.Use(), `.ErrUnexpectedEOF`)
-		p.Out()
-		p.P(`}`)
 		if customType {
 			p.P(`if err := `, varName, `.Unmarshal(dAtA[iNdEx:postbytesIndex]); err != nil {`)
 			p.In()
@@ -636,22 +581,7 @@ func (p *unmarshal) field(file *generator.FileDescriptor, msg *generator.Descrip
 		p.P(`var stringLen uint64`)
 		p.decodeVarint("stringLen", "uint64")
 		p.P(`intStringLen := int(stringLen)`)
-		p.P(`if intStringLen < 0 {`)
-		p.In()
-		p.P(`return ErrInvalidLength` + p.localName)
-		p.Out()
-		p.P(`}`)
 		p.P(`postIndex := iNdEx + intStringLen`)
-		p.P(`if postIndex < 0 {`)
-		p.In()
-		p.P(`return ErrInvalidLength` + p.localName)
-		p.Out()
-		p.P(`}`)
-		p.P(`if postIndex > l {`)
-		p.In()
-		p.P(`return `, p.ioPkg.Use(), `.ErrUnexpectedEOF`)
-		p.Out()
-		p.P(`}`)
 		if oneof {
 			p.P(`m.`, fieldname, ` = &`, p.OneOfTypeName(msg, field), `{`, typ, `(dAtA[iNdEx:postIndex])}`)
 		} else if repeated {
@@ -670,22 +600,7 @@ func (p *unmarshal) field(file *generator.FileDescriptor, msg *generator.Descrip
 		msgname := p.TypeName(desc)
 		p.P(`var msglen int`)
 		p.decodeVarint("msglen", "int")
-		p.P(`if msglen < 0 {`)
-		p.In()
-		p.P(`return ErrInvalidLength` + p.localName)
-		p.Out()
-		p.P(`}`)
 		p.P(`postIndex := iNdEx + msglen`)
-		p.P(`if postIndex < 0 {`)
-		p.In()
-		p.P(`return ErrInvalidLength` + p.localName)
-		p.Out()
-		p.P(`}`)
-		p.P(`if postIndex > l {`)
-		p.In()
-		p.P(`return `, p.ioPkg.Use(), `.ErrUnexpectedEOF`)
-		p.Out()
-		p.P(`}`)
 		if oneof {
 			buf := `dAtA[iNdEx:postIndex]`
 			if gogoproto.IsStdTime(field) {
@@ -842,16 +757,6 @@ func (p *unmarshal) field(file *generator.FileDescriptor, msg *generator.Descrip
 			p.P(`if err != nil {`)
 			p.In()
 			p.P(`return err`)
-			p.Out()
-			p.P(`}`)
-			p.P(`if skippy < 0 {`)
-			p.In()
-			p.P(`return ErrInvalidLength`, p.localName)
-			p.Out()
-			p.P(`}`)
-			p.P(`if (iNdEx + skippy) > postIndex {`)
-			p.In()
-			p.P(`return `, p.ioPkg.Use(), `.ErrUnexpectedEOF`)
 			p.Out()
 			p.P(`}`)
 			p.P(`iNdEx += skippy`)
@@ -1124,22 +1029,7 @@ func (p *unmarshal) field(file *generator.FileDescriptor, msg *generator.Descrip
 	case descriptor.FieldDescriptorProto_TYPE_BYTES:
 		p.P(`var byteLen int`)
 		p.decodeVarint("byteLen", "int")
-		p.P(`if byteLen < 0 {`)
-		p.In()
-		p.P(`return ErrInvalidLength` + p.localName)
-		p.Out()
-		p.P(`}`)
 		p.P(`postIndex := iNdEx + byteLen`)
-		p.P(`if postIndex < 0 {`)
-		p.In()
-		p.P(`return ErrInvalidLength` + p.localName)
-		p.Out()
-		p.P(`}`)
-		p.P(`if postIndex > l {`)
-		p.In()
-		p.P(`return `, p.ioPkg.Use(), `.ErrUnexpectedEOF`)
-		p.Out()
-		p.P(`}`)
 		if !gogoproto.IsCustomType(field) {
 			if oneof {
 				p.P(`v := make([]byte, postIndex-iNdEx)`)
@@ -1349,19 +1239,8 @@ func (p *unmarshal) Generate(file *generator.FileDescriptor) {
 		p.P(`fieldNum := int32(wire >> 3)`)
 		if len(message.Field) > 0 || !message.IsGroup() {
 			p.P(`wireType := int(wire & 0x7)`)
+			p.P(`_ = wireType`)
 		}
-		if !message.IsGroup() {
-			p.P(`if wireType == `, strconv.Itoa(proto.WireEndGroup), ` {`)
-			p.In()
-			p.P(`return `, fmtPkg.Use(), `.Errorf("proto: `+message.GetName()+`: wiretype end group for non-group")`)
-			p.Out()
-			p.P(`}`)
-		}
-		p.P(`if fieldNum <= 0 {`)
-		p.In()
-		p.P(`return `, fmtPkg.Use(), `.Errorf("proto: `+message.GetName()+`: illegal tag %d (wire type %d)", fieldNum, wire)`)
-		p.Out()
-		p.P(`}`)
 		p.P(`switch fieldNum {`)
 		p.In()
 		for _, field := range message.Field {
@@ -1383,23 +1262,7 @@ func (p *unmarshal) Generate(file *generator.FileDescriptor) {
 				p.In()
 				p.P(`var packedLen int`)
 				p.decodeVarint("packedLen", "int")
-				p.P(`if packedLen < 0 {`)
-				p.In()
-				p.P(`return ErrInvalidLength` + p.localName)
-				p.Out()
-				p.P(`}`)
 				p.P(`postIndex := iNdEx + packedLen`)
-				p.P(`if postIndex < 0 {`)
-				p.In()
-				p.P(`return ErrInvalidLength` + p.localName)
-				p.Out()
-				p.P(`}`)
-				p.P(`if postIndex > l {`)
-				p.In()
-				p.P(`return `, p.ioPkg.Use(), `.ErrUnexpectedEOF`)
-				p.Out()
-				p.P(`}`)
-
 				p.P(`var elementCount int`)
 				switch *field.Type {
 				case descriptor.FieldDescriptorProto_TYPE_DOUBLE, descriptor.FieldDescriptorProto_TYPE_FIXED64, descriptor.FieldDescriptorProto_TYPE_SFIXED64:
@@ -1439,11 +1302,6 @@ func (p *unmarshal) Generate(file *generator.FileDescriptor) {
 				p.Out()
 				p.P(`}`)
 			} else {
-				p.P(`if wireType != `, strconv.Itoa(wireType), `{`)
-				p.In()
-				p.P(`return ` + fmtPkg.Use() + `.Errorf("proto: wrong wireType = %d for field ` + errFieldname + `", wireType)`)
-				p.Out()
-				p.P(`}`)
 				p.field(file, message, field, fieldname, proto3)
 			}
 
@@ -1484,21 +1342,6 @@ func (p *unmarshal) Generate(file *generator.FileDescriptor) {
 			p.P(`return err`)
 			p.Out()
 			p.P(`}`)
-			p.P(`if skippy < 0 {`)
-			p.In()
-			p.P(`return ErrInvalidLength`, p.localName)
-			p.Out()
-			p.P(`}`)
-			p.P(`if (iNdEx + skippy) < 0 {`)
-			p.In()
-			p.P(`return ErrInvalidLength`, p.localName)
-			p.Out()
-			p.P(`}`)
-			p.P(`if (iNdEx + skippy) > l {`)
-			p.In()
-			p.P(`return `, p.ioPkg.Use(), `.ErrUnexpectedEOF`)
-			p.Out()
-			p.P(`}`)
 			p.P(protoPkg.Use(), `.AppendExtension(m, int32(fieldNum), dAtA[iNdEx:iNdEx+skippy])`)
 			p.P(`iNdEx += skippy`)
 			p.Out()
@@ -1510,21 +1353,6 @@ func (p *unmarshal) Generate(file *generator.FileDescriptor) {
 		p.P(`if err != nil {`)
 		p.In()
 		p.P(`return err`)
-		p.Out()
-		p.P(`}`)
-		p.P(`if skippy < 0 {`)
-		p.In()
-		p.P(`return ErrInvalidLength`, p.localName)
-		p.Out()
-		p.P(`}`)
-		p.P(`if (iNdEx + skippy) < 0 {`)
-		p.In()
-		p.P(`return ErrInvalidLength`, p.localName)
-		p.Out()
-		p.P(`}`)
-		p.P(`if (iNdEx + skippy) > l {`)
-		p.In()
-		p.P(`return `, p.ioPkg.Use(), `.ErrUnexpectedEOF`)
 		p.Out()
 		p.P(`}`)
 		if gogoproto.HasUnrecognized(file.FileDescriptorProto, message.DescriptorProto) {
@@ -1581,12 +1409,6 @@ func (p *unmarshal) Generate(file *generator.FileDescriptor) {
 		for iNdEx < l {
 			var wire uint64
 			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return 0, ErrIntOverflow` + p.localName + `
-				}
-				if iNdEx >= l {
-					return 0, ` + p.ioPkg.Use() + `.ErrUnexpectedEOF
-				}
 				b := dAtA[iNdEx]
 				iNdEx++
 				wire |= (uint64(b) & 0x7F) << shift
@@ -1598,12 +1420,6 @@ func (p *unmarshal) Generate(file *generator.FileDescriptor) {
 			switch wireType {
 			case 0:
 				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflow` + p.localName + `
-					}
-					if iNdEx >= l {
-						return 0, ` + p.ioPkg.Use() + `.ErrUnexpectedEOF
-					}
 					iNdEx++
 					if dAtA[iNdEx-1] < 0x80 {
 						break
@@ -1616,12 +1432,6 @@ func (p *unmarshal) Generate(file *generator.FileDescriptor) {
 			case 2:
 				var length int
 				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflow` + p.localName + `
-					}
-					if iNdEx >= l {
-						return 0, ` + p.ioPkg.Use() + `.ErrUnexpectedEOF
-					}
 					b := dAtA[iNdEx]
 					iNdEx++
 					length |= (int(b) & 0x7F) << shift
@@ -1629,25 +1439,13 @@ func (p *unmarshal) Generate(file *generator.FileDescriptor) {
 						break
 					}
 				}
-				if length < 0 {
-					return 0, ErrInvalidLength` + p.localName + `
-				}
 				iNdEx += length
-				if iNdEx < 0 {
-					return 0, ErrInvalidLength` + p.localName + `
-				}
 				return iNdEx, nil
 			case 3:
 				for {
 					var innerWire uint64
 					var start int = iNdEx
 					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return 0, ErrIntOverflow` + p.localName + `
-						}
-						if iNdEx >= l {
-							return 0, ` + p.ioPkg.Use() + `.ErrUnexpectedEOF
-						}
 						b := dAtA[iNdEx]
 						iNdEx++
 						innerWire |= (uint64(b) & 0x7F) << shift
@@ -1664,9 +1462,6 @@ func (p *unmarshal) Generate(file *generator.FileDescriptor) {
 						return 0, err
 					}
 					iNdEx = start + next
-					if iNdEx < 0 {
-						return 0, ErrInvalidLength` + p.localName + `
-					}
 				}
 				return iNdEx, nil
 			case 4:
