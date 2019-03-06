@@ -1519,7 +1519,14 @@ func (g *Generator) generateEnum(enum *EnumDescriptor) {
 	if gogoproto.IsGoEnumStringer(g.file.FileDescriptorProto, enum.EnumDescriptorProto) {
 		g.P("func (x ", ccTypeName, ") String() string {")
 		g.In()
-		g.P("return ", g.Pkg["proto"], ".EnumName(", ccTypeName, "_name, int32(x))")
+		g.P(`s, ok := `, ccTypeName, `_name [int32(x)]`)
+		g.P(`if ok {`)
+		g.In()
+		g.P(`return s`)
+		g.Out()
+		g.P(`}`)
+		g.P(`return fmt.Sprintf(s, "%d", int32(x))`)
+		g.P()
 		g.Out()
 		g.P("}")
 		g.P()
@@ -1555,11 +1562,6 @@ func (g *Generator) generateEnum(enum *EnumDescriptor) {
 		indexes = append([]string{strconv.Itoa(m.index)}, indexes...)
 	}
 	indexes = append(indexes, strconv.Itoa(enum.index))
-	g.P("func (", ccTypeName, ") EnumDescriptor() ([]byte, []int) {")
-	g.In()
-	g.P("return ", g.file.VarName(), ", []int{", strings.Join(indexes, ", "), "}")
-	g.Out()
-	g.P("}")
 	g.P()
 	if enum.file.GetPackage() == "google.protobuf" && enum.GetName() == "NullValue" {
 		g.P("func (", ccTypeName, `) XXX_WellKnownType() string { return "`, enum.GetName(), `" }`)
