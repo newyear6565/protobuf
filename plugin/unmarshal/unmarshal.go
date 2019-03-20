@@ -1434,6 +1434,7 @@ func (p *unmarshal) Generate(file *generator.FileDescriptor) {
 	p.In()
 	p.P(`ErrInvalidLength` + p.localName + ` = ` + fmtPkg.Use() + `.Errorf("proto: negative length found during unmarshaling")`)
 	p.P(`ErrIntOverflow` + p.localName + ` = ` + fmtPkg.Use() + `.Errorf("proto: integer overflow")`)
+	p.P(`ErrNil` + p.localName + ` = ` + fmtPkg.Use() + `.Errorf("proto: can not deal with nil data")`)
 	p.P(`)`)
 	p.Out()
 	p.P()

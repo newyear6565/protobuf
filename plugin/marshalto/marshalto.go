@@ -1237,6 +1237,11 @@ func (p *marshalto) Generate(file *generator.FileDescriptor) {
 
 		p.P(`func (m *`, ccTypeName, `) Marshal() (dAtA []byte, err error) {`)
 		p.In()
+		p.P("if m == nil {")
+		p.In()
+		p.P(`return nil, ErrNil` + p.localName)
+		p.Out()
+		p.P("}")
 		if gogoproto.IsProtoSizer(file.FileDescriptorProto, message.DescriptorProto) {
 			p.P(`size := m.ProtoSize()`)
 		} else {
